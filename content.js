@@ -16,23 +16,26 @@
 
 //Globals
 var dropdown = document.querySelector('.global-nav .pull-right .nav .dropdown-menu'),
-	currentUser;
+	currentAccount;
 
-function getSetCurrentUser() {
+function setCurrentAccount () {
 	//Get current uid and image from DOM
 	var account = dropdown.querySelector('.account-group'),
 		img = dropdown.querySelector('.account-group img');
 
-	return currentUser = {
+	if (!account) return currentAccount = false;
+
+	// Save in currentAccount
+	return currentAccount = {
 			uid: account.getAttribute('data-user-id'),
 			name: account.getAttribute('data-screen-name'),
 			img: img.getAttribute('src')
 	}
 }
 
-function switchAccount(event) {
+function switchAccount (event) {
 	var target = event.target, uid;
-	while (target.tagName != 'LI') {
+	while (target.tagName !== 'LI') {
 		target = target.parentNode;
 	}
 	uid = target.getAttribute('data-user-id');
@@ -40,7 +43,7 @@ function switchAccount(event) {
 	chrome.extension.sendMessage({type: 'switchAccount', uid: uid});
 }
 
-function cleanup() {
+function cleanup () {
 	var twichers = dropdown.querySelectorAll('.twitcher-inserted');
 	for (var i = 0; i < twichers.length; i++) {
 		var childNode = twichers[i];
@@ -50,7 +53,7 @@ function cleanup() {
 	}
 }
 
-function render(accounts) {
+function render (accounts) {
 
 	//Cleanup previous render
 	cleanup();
@@ -69,7 +72,7 @@ function render(accounts) {
 	for (var uid in accounts) {
 		var account = accounts[uid];
 
-		if (uid == currentUser.uid) continue;
+		if (uid == currentAccount.uid) continue;
 
 		li = document.createElement('li');
 		li.className = 'twitcher-inserted';
@@ -90,7 +93,7 @@ function render(accounts) {
 				event.dataTransfer.setData('text/html', uid);
 			}
 		})(uid), false);
-		li.addEventListener('dragend', function(event) {
+		li.addEventListener('dragend', function (event) {
 			this.style.opacity = '1';
 			this.getElementsByTagName('a')[0].setAttribute('style', '');
 		}, false);
@@ -107,9 +110,9 @@ function render(accounts) {
 }
 
 
-function bindDropListeners() {
+function bindDropListeners () {
 
-	function prevent(event) {
+	function prevent (event) {
 		event.preventDefault();
 		return false;
 	}
@@ -131,9 +134,13 @@ function bindDropListeners() {
 	}, false);
 }
 
-//Save latest version of current user
-chrome.extension.sendMessage({type: 'currentUser', currentUser: getSetCurrentUser()}, function(){
-	//Boot
-	bindDropListeners();
-	chrome.extension.sendMessage({type: 'getAccounts'}, render);
-});
+setCurrentAccount();
+
+if (currentAccount) {
+	//Save latest version of current user
+	chrome.extension.sendMessage({type: 'currentAccount', currentAccount: currentAccount}, function () {
+		//Boot
+		bindDropListeners();
+		chrome.extension.sendMessage({type: 'getAccounts'}, render);
+	});
+}
