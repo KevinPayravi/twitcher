@@ -80,14 +80,16 @@ function render(accounts) {
 		li.addEventListener('click', switchAccount, false);
 
 		//Add drag shizzle
-		li.addEventListener('dragstart', function(event) {
-			this.style.opacity = '0.4';
-			this.getElementsByTagName('a')[0].style.background = 'red';
+		li.addEventListener('dragstart', (function (uid) {
+			return function(event) {
+				this.style.opacity = '0.4';
+				this.getElementsByTagName('a')[0].style.background = 'red';
 
-			//Store uid
-			event.dataTransfer.effectAllowed = 'move';
-  			event.dataTransfer.setData('text/html', uid);
-		}, false);
+				//Store uid
+				event.dataTransfer.effectAllowed = 'move';
+				event.dataTransfer.setData('text/html', uid);
+			}
+		})(uid), false);
 		li.addEventListener('dragend', function(event) {
 			this.style.opacity = '1';
 			this.getElementsByTagName('a')[0].setAttribute('style', '');
