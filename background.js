@@ -15,129 +15,139 @@
  */
 
 if (!chrome.cookies) {
-	chrome.cookies = chrome.experimental.cookies;
+  chrome.cookies = chrome.experimental.cookies;
 }
 
-//Globals
+// Globals
 var COOKIE_TOKEN = 'auth_token';
-	COOKIE_ID = 'twid';
+var COOKIE_ID = 'twid';
 
-var Accounts = (function () {
+/**
+ * Convenience methods for accessing accounts
+ */
 
-	var accountStore = {},
-		key;
+var accounts = {
+  accounts: {},
+  get: function (uid) {
+    return this.accounts[uid];
+  },
+  set: function (uid, data, callback) {
+    this.accounts[uid] = data;
+    if (callback) this.save(callback);
+  },
+  remove: function (uid, callback) {
+    delete this.accounts[uid];
+    if (callback) this.save(callback);
+  },
+  save: function (callback) {
+    var accounts = this.accounts;
+    var json = JSON.stringify(accounts);
+    chrome.storage.sync.set({ 'accounts': json }, function () {
+      callback(accounts);
+    });
+  },
+  getAll: function (callback) {
+    var self = this;
+    chrome.storage.sync.get('accounts', function (json) {
+      if (json.accounts && json.accounts.length) {
+        self.accounts = JSON.parse(json.accounts);
+      }
+      callback(self.accounts);
+    });
+  }
+};
 
-	function Accounts (key) {
-		key = key;
-	}
-
-	Accounts.prototype.get = function (uid) {
-		return accountStore[uid];
-	};
-
-	Accounts.prototype.set = function (uid, data) {
-		accountStore[uid] = data;
-	};
-
-	Accounts.prototype.remove = function (uid) {
-		delete accountStore[uid];
-	};
-
-	Accounts.prototype.save = function (callback) {
-		var save = {};
-		save[key] = JSON.stringify(accountStore);
-		chrome.storage.sync.set(save, function () {
-			callback(accountStore);
-		});
-	};
-
-	Accounts.prototype.getAll = function (callback) {
-		chrome.storage.sync.get(key, function (rawAccounts) {
-			if (rawAccounts.accounts && rawAccounts.accounts.length) {
-				accountStore = JSON.parse(rawAccounts.accounts);
-			}
-
-			callback(accountStore);
-		});
-	};
-
-	return Accounts;
-
-})();
-
-var accounts = new Accounts('accounts');
+/**
+ * Convenience methods for accessing current account
+ */
 
 var currentAccount = {
-	change: function (uid) {
-		chrome.cookies.set({
-			url: 'https://twitter.com',
-			name: COOKIE_TOKEN,
-			value: accounts.get(uid).token,
-			domain: '.twitter.com',
-			path: '/',
-			secure: true,
-			httpOnly: true
-		});
+  change: function (uid) {
+    // Set token cookie
+    chrome.cookies.set({
+      url: 'https://twitter.com',
+      name: COOKIE_TOKEN,
+      value: accounts.get(uid).token,
+      domain: '.twitter.com',
+      path: '/',
+      secure: true,
+      httpOnly: true
+    });
 
-		chrome.cookies.remove({
-			url: 'https://twitter.com',
-			name: COOKIE_ID
-		});
+    // Remove user id cookie
+    chrome.cookies.remove({
+      url: 'https://twitter.com',
+      name: COOKIE_ID
+    });
 
-		chrome.tabs.getSelected(null, function (tab) {
-			chrome.tabs.reload(tab.id);
-		});
-	},
+    // Reload
+    chrome.tabs.getSelected(null, function (tab) {
+      chrome.tabs.reload(tab.id);
+    });
+  },
+  save: function (user, callback) {
+    // Get the token
+    chrome.cookies.get({
+      url: 'https://twitter.com',
+      name: COOKIE_TOKEN
+    }, function (cookie) {
+      if (!cookie) return callback();
 
-	save: function (user, callback) {
-		//Get the token
-		chrome.cookies.get({url: 'https://twitter.com', name: COOKIE_TOKEN}, function (cookie) {
-			if (!cookie) return callback();
-
-			accounts.set(user.uid, {
-				name: user.name,
-				img: user.img,
-				token: cookie.value
-			});
-			accounts.save(callback);
-		});
-	}
+      // Save cookie
+      accounts.set(user.uid, {
+        name: user.name,
+        img: user.img,
+        token: cookie.value
+      }, callback);
+    });
+  }
 };
+
+/**
+ * Listen for messages
+ */
 
 chrome.extension.onMessage.addListener(function (request, sender, sendResponse) {
 
-	if (sender.id !== window.location.host) return; //Not from us
+  if (sender.id !== window.location.host)
+    // Not from us
+    return;
 
-	switch (request.type) {
-		case 'getAccounts':
-			accounts.getAll(sendResponse);
-			break;
-		case 'removeAccount':
-			accounts.remove(request.uid);
-			accounts.save(function (accounts) {
-				sendResponse(accounts);
-			});
-			break;
-		case 'switchAccount':
-			currentAccount.change(request.uid);
-			break;
-		case 'currentAccount':
-			// Make sure we have go all accounts before saving
-			accounts.getAll(function () {
-				currentAccount.save(request.currentAccount, sendResponse);
-			});
-			break;
-	}
+  switch (request.type) {
+    case 'getAccounts':
+      accounts.getAll(sendResponse);
+      break;
+    case 'removeAccount':
+      accounts.remove(request.uid, function (accounts) {
+        sendResponse(accounts);
+      });
+      break;
+    case 'switchAccount':
+      currentAccount.change(request.uid);
+      break;
+    case 'currentAccount':
+      // Make sure we have go all accounts before saving
+      accounts.getAll(function () {
+        currentAccount.save(request.currentAccount, sendResponse);
+      });
+      break;
+    default:
+      return false;
+  }
 
-	// Indicate response via callback
-	return true;
+  // Indicate response via callback
+  return true;
 });
+
+/**
+ * Google analytics
+ */
 
 var _gaq = _gaq || [];
 _gaq.push(['_setAccount', 'UA-17516578-20']);
 _gaq.push(['_trackPageview']);
 (function() {
-	var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
-	ga.src = 'https://ssl.google-analytics.com/ga.js';
-	var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+  ga.src = 'https://ssl.google-analytics.com/ga.js';
+  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
 })();

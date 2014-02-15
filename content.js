@@ -15,132 +15,146 @@
  */
 
 //Globals
-var dropdown = document.querySelector('.global-nav .pull-right .nav .dropdown-menu'),
-	currentAccount;
+var dropdown = document.querySelector('.global-nav .pull-right .nav .dropdown-menu');
+var currentAccount;
 
-function setCurrentAccount () {
-	//Get current uid and image from DOM
-	var account = dropdown.querySelector('.account-group'),
-		img = dropdown.querySelector('.account-group img');
+/**
+ * Get current account from DOM
+ */
 
-	if (!account) return currentAccount = false;
+var getCurrentAccount = function () {
+  // Get current uid and image from DOM
+  var account = dropdown.querySelector('.account-group');
+  var img = dropdown.querySelector('.account-group img');
 
-	// Save in currentAccount
-	return currentAccount = {
-			uid: account.getAttribute('data-user-id'),
-			name: account.getAttribute('data-screen-name'),
-			img: img.getAttribute('src')
-	}
-}
+  if (!account) return false;
 
-function switchAccount (event) {
-	var target = event.target, uid;
-	while (target.tagName !== 'LI') {
-		target = target.parentNode;
-	}
-	uid = target.getAttribute('data-user-id');
+  return {
+      uid: account.getAttribute('data-user-id'),
+      name: account.getAttribute('data-screen-name'),
+      img: img.getAttribute('src')
+  };
+};
 
-	chrome.extension.sendMessage({type: 'switchAccount', uid: uid});
-}
+/**
+ * Switch current account
+ */
 
-function cleanup () {
-	var twichers = dropdown.querySelectorAll('.twitcher-inserted');
-	for (var i = 0; i < twichers.length; i++) {
-		var childNode = twichers[i];
-		if (childNode.parentNode) {
-			childNode.parentNode.removeChild(childNode);
-		}
-	}
-}
+var switchAccount = function (event) {
+  var target = event.target;
+  var uid;
+  while (target.tagName !== 'LI') {
+    target = target.parentNode;
+  }
+  uid = target.getAttribute('data-user-id');
 
-function render (accounts) {
+  chrome.extension.sendMessage({type: 'switchAccount', uid: uid});
+};
 
-	//Cleanup previous render
-	cleanup();
+/**
+ * Inject accounts into DOM
+ */
 
-	var target = dropdown.querySelector('.dropdown-divider'),
-		parent = target.parentNode,
-		accountsAdded = false,
-		li, html;
+var render = function (accounts) {
 
-	//Add divider
-	li = document.createElement('li');
-	li.className = 'dropdown-divider twitcher-inserted';
-	parent.insertBefore(li, target);
+  // Cleanup previous render
+  var twichers = dropdown.querySelectorAll('.twitcher-inserted');
+  for (var i = 0; i < twichers.length; i++) {
+    var childNode = twichers[i];
+    if (childNode.parentNode) {
+      childNode.parentNode.removeChild(childNode);
+    }
+  }
 
-	//Add each account
-	for (var uid in accounts) {
-		var account = accounts[uid];
+  var target = dropdown.querySelector('.dropdown-divider');
+  var parent = target.parentNode;
+  var accountsAdded = false;
+  var li, html;
 
-		if (uid == currentAccount.uid) continue;
+  // Add divider
+  li = document.createElement('li');
+  li.className = 'dropdown-divider twitcher-inserted';
+  parent.insertBefore(li, target);
 
-		li = document.createElement('li');
-		li.className = 'twitcher-inserted';
-		li.setAttribute('data-user-id', uid);
-		li.setAttribute('draggable', true);
-		li.innerHTML = '<a><img style="margin:0 9px -4px 0" class="size18" src="' + account.img + '">' + account.name + '</a>';
-		li = parent.insertBefore(li, target);
-		li.addEventListener('click', switchAccount, false);
+  var handleDragStart = function (uid) {
+    return function(event) {
+      this.style.opacity = '0.4';
+      this.getElementsByTagName('a')[0].style.background = 'red';
 
-		//Add drag shizzle
-		li.addEventListener('dragstart', (function (uid) {
-			return function(event) {
-				this.style.opacity = '0.4';
-				this.getElementsByTagName('a')[0].style.background = 'red';
+      // Store uid
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/html', uid);
+    };
+  };
 
-				//Store uid
-				event.dataTransfer.effectAllowed = 'move';
-				event.dataTransfer.setData('text/html', uid);
-			}
-		})(uid), false);
-		li.addEventListener('dragend', function (event) {
-			this.style.opacity = '1';
-			this.getElementsByTagName('a')[0].setAttribute('style', '');
-		}, false);
+  var handleDragEnd = function (event) {
+    this.style.opacity = '1';
+    this.getElementsByTagName('a')[0].setAttribute('style', '');
+  };
 
-		accountsAdded = true;
-	}
+  // Add each account
+  for (var uid in accounts) {
+    var account = accounts[uid];
 
-	if (!accountsAdded) {
-		li = document.createElement('li');
-		li.className = 'twitcher-inserted';
-		li.innerHTML = '<p style="color:#999;font-size:0.8em;margin-left:22px">No other accounts</p>';
-		li = parent.insertBefore(li, target);
-	}
-}
+    if (uid == currentAccount.uid) continue;
+
+    li = document.createElement('li');
+    li.className = 'twitcher-inserted';
+    li.setAttribute('data-user-id', uid);
+    li.setAttribute('draggable', true);
+    li.innerHTML = '<a><img style="margin:0 9px -4px 0" class="size18" src="' + account.img + '">' + account.name + '</a>';
+    li = parent.insertBefore(li, target);
+    li.addEventListener('click', switchAccount, false);
+
+    // Add drag shizzle
+    li.addEventListener('dragstart', handleDragStart(uid), false);
+    li.addEventListener('dragend', handleDragEnd, false);
+
+    accountsAdded = true;
+  }
+
+  if (!accountsAdded) {
+    li = document.createElement('li');
+    li.className = 'twitcher-inserted';
+    li.innerHTML = '<p style="color:#999;font-size:0.8em;margin-left:22px">No other accounts</p>';
+    li = parent.insertBefore(li, target);
+  }
+};
+
+/**
+ * Bind listeners to DOM
+ */
+
+var bindDropListeners = function () {
+  var preventDefault = function (event) {
+    event.preventDefault();
+    return false;
+  };
+
+  // This stops it propogating when droped back inside the dropdown
+  dropdown.addEventListener('dragover', preventDefault, false);
+  dropdown.addEventListener('dragenter', preventDefault, false);
+  dropdown.addEventListener('drop', function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }, false);
+
+  // Removes it when it's dropped outside the dropdown
+  document.body.addEventListener('dragover', preventDefault, false);
+  document.body.addEventListener('dragenter', preventDefault, false);
+  document.body.addEventListener('drop', function (event) {
+    event.preventDefault();
+    chrome.extension.sendMessage({type: 'removeAccount', uid: event.dataTransfer.getData('text/html')}, render);
+  }, false);
+};
 
 
-function bindDropListeners () {
-
-	function prevent (event) {
-		event.preventDefault();
-		return false;
-	}
-
-	//This stops it propogating when droped back inside the dropdown
-	dropdown.addEventListener('dragover', prevent, false);
-	dropdown.addEventListener('dragenter', prevent, false);
-	dropdown.addEventListener('drop', function (event) {
-		prevent(event);
-		event.stopPropagation();
-	}, false);
-
-	//Removes it when it's dropped outside the dropdown
-	document.body.addEventListener('dragover', prevent, false);
-	document.body.addEventListener('dragenter', prevent, false);
-	document.body.addEventListener('drop', function (event) {
-		prevent(event);
-		chrome.extension.sendMessage({type: 'removeAccount', uid: event.dataTransfer.getData('text/html')}, render);
-	}, false);
-}
-
-setCurrentAccount();
-
+currentAccount = getCurrentAccount();
 if (currentAccount) {
-	//Save latest version of current user
-	chrome.extension.sendMessage({type: 'currentAccount', currentAccount: currentAccount}, function () {
-		//Boot
-		bindDropListeners();
-		chrome.extension.sendMessage({type: 'getAccounts'}, render);
-	});
+  // Save latest version of current user
+  chrome.extension.sendMessage({ type: 'currentAccount', currentAccount: currentAccount }, function () {
+    // Boot
+    bindDropListeners();
+    chrome.extension.sendMessage({ type: 'getAccounts' }, render);
+  });
 }
