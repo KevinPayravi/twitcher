@@ -83,7 +83,7 @@ var render = function (accounts) {
 
       // Store uid
       event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/html', uid);
+      event.dataTransfer.setData('text', uid);
     };
   };
 
@@ -144,7 +144,7 @@ var bindDropListeners = function () {
   document.body.addEventListener('dragenter', preventDefault, false);
   document.body.addEventListener('drop', function (event) {
     event.preventDefault();
-    chrome.extension.sendMessage({type: 'removeAccount', uid: event.dataTransfer.getData('text/html')}, render);
+    chrome.extension.sendMessage({type: 'removeAccount', uid: event.dataTransfer.getData('text')}, render);
   }, false);
 };
 
