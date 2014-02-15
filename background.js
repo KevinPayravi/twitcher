@@ -47,6 +47,7 @@ var accounts = {
     });
   },
   getAll: function (callback) {
+    if (!callback) return this.accounts;
     var self = this;
     chrome.storage.sync.get('accounts', function (json) {
       if (json.accounts && json.accounts.length) {
@@ -54,52 +55,10 @@ var accounts = {
       }
       callback(self.accounts);
     });
-  }
-};
-
-/**
- * Convenience methods for accessing current account
- */
-
-var currentAccount = {
-  change: function (uid) {
-    // Set token cookie
-    chrome.cookies.set({
-      url: 'https://twitter.com',
-      name: COOKIE_TOKEN,
-      value: accounts.get(uid).token,
-      domain: '.twitter.com',
-      path: '/',
-      secure: true,
-      httpOnly: true
-    });
-
-    // Remove user id cookie
-    chrome.cookies.remove({
-      url: 'https://twitter.com',
-      name: COOKIE_ID
-    });
-
-    // Reload
-    chrome.tabs.getSelected(null, function (tab) {
-      chrome.tabs.reload(tab.id);
-    });
   },
-  save: function (user, callback) {
-    // Get the token
-    chrome.cookies.get({
-      url: 'https://twitter.com',
-      name: COOKIE_TOKEN
-    }, function (cookie) {
-      if (!cookie) return callback();
-
-      // Save cookie
-      accounts.set(user.uid, {
-        name: user.name,
-        img: user.img,
-        token: cookie.value
-      }, callback);
-    });
+  setAll: function (accounts, callback) {
+    this.accounts = accounts;
+    if (callback) this.save(callback);
   }
 };
 
@@ -123,12 +82,65 @@ chrome.extension.onMessage.addListener(function (request, sender, sendResponse) 
       });
       break;
     case 'switchAccount':
-      currentAccount.change(request.uid);
+      var account = accounts.get(request.uid);
+      if (account && !account.ignored) {
+        // Set token cookie
+        chrome.cookies.set({
+          url: 'https://twitter.com',
+          name: COOKIE_TOKEN,
+          value: account.token,
+          domain: '.twitter.com',
+          path: '/',
+          secure: true,
+          httpOnly: true
+        });
+
+        // Remove user id cookie
+        chrome.cookies.remove({
+          url: 'https://twitter.com',
+          name: COOKIE_ID
+        });
+      }
+
+      // Reload
+      chrome.tabs.getSelected(null, function (tab) {
+        chrome.tabs.reload(tab.id);
+      });
       break;
     case 'currentAccount':
       // Make sure we have go all accounts before saving
       accounts.getAll(function () {
-        currentAccount.save(request.currentAccount, sendResponse);
+        // Get the token
+        chrome.cookies.get({
+          url: 'https://twitter.com',
+          name: COOKIE_TOKEN
+        }, function (cookie) {
+          if (!cookie) return callback();
+
+          // Save cookie
+          var account = request.currentAccount;
+          accounts.set(account.uid, {
+            name: account.name,
+            img: account.img,
+            token: cookie.value
+          }, sendResponse);
+        });
+      });
+      break;
+    case 'ignore':
+      accounts.getAll(function (all) {
+        // Reset
+        for (var uid in all) {
+          all[uid].ignored = false;
+        }
+
+        // Update
+        request.ignore.forEach(function (uid) {
+          all[uid].ignored = true;
+        });
+
+        // Save
+        accounts.setAll(all, sendResponse);
       });
       break;
     default:

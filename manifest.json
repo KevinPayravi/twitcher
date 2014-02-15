@@ -15,6 +15,7 @@
       "js": ["content.js"]
     }
   ],
+  "options_page": "options.html",
   "permissions": [
     "cookies",
     "storage",

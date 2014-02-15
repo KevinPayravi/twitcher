@@ -96,7 +96,8 @@ var render = function (accounts) {
   for (var uid in accounts) {
     var account = accounts[uid];
 
-    if (uid == currentAccount.uid) continue;
+    if (uid == currentAccount.uid || account.ignored)
+      continue;
 
     li = document.createElement('li');
     li.className = 'twitcher-inserted';

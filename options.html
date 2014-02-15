@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+	<title>Twitcher Options</title>
+	<script src="options.js"></script>
+	<link href="chrome-bootstrap.css" type="text/css" rel="stylesheet" />
+	<style>
+	li {
+		list-style: none;
+	}
+	label input[type="checkbox"] {
+		margin-top: -14px;
+	}
+	label img {
+		width: 24px;
+		margin: 0 9px 0;
+	}
+	label div {
+		margin-top: -5px;
+		display: inline-block;
+		line-height: 36px;
+		vertical-align: top;
+	}
+	</style>
+</head>
+<body class="frame">
+	<div class="navigation">
+		<h1><a href="#">Twitcher</a></h1>
+		<ul class="menu">
+			<li class="selected">
+				<a href="#">Settings</a>
+			</li>
+		</ul>
+	</div>
+
+	<div class="mainview view">
+		<div id="typography" class="selected">
+			<header>
+				<h1>Switchable Accounts <small>Only checked accounts will be available for switching</small></h1>
+			</header>
+			<div class="content">
+				<ul id="accounts"></ul>
+				<button id="save">Save</button>
+			</div>
+		</div>
+	</div>
+
+</body>
+</html>
