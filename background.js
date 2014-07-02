@@ -84,6 +84,9 @@ chrome.extension.onMessage.addListener(function (request, sender, sendResponse) 
     case 'switchAccount':
       var account = accounts.get(request.uid);
       if (account && !account.ignored) {
+        var expires = new Date;
+        expires.setFullYear(expires.getFullYear() + 10);
+
         // Set token cookie
         chrome.cookies.set({
           url: 'https://twitter.com',
@@ -92,7 +95,8 @@ chrome.extension.onMessage.addListener(function (request, sender, sendResponse) 
           domain: '.twitter.com',
           path: '/',
           secure: true,
-          httpOnly: true
+          httpOnly: true,
+          expirationDate: expires / 1000
         });
 
         // Remove user id cookie
