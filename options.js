@@ -55,7 +55,7 @@ var save = function (event) {
     var elem = elems[i];
     if (!elem.checked)
       ignore.push(elem.getAttribute('data-uid'));
-  };
+  }
 
   chrome.extension.sendMessage({ type: 'ignore', ignore: ignore }, function() {
     btn.disabled = true;
