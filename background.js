@@ -63,6 +63,104 @@ var accounts = {
 };
 
 /**
+ * Message handlers
+ */
+
+var handlers = {
+
+  getAccounts: function (request, sendResponse) {
+    accounts.getAll(sendResponse);
+
+    return true;
+  },
+
+  removeAccount: function (request, sendResponse) {
+    accounts.remove(request.uid, sendResponse);
+
+    return true;
+  },
+
+  switchAccount: function (request) {
+    var account = accounts.get(request.uid);
+    var expires = new Date;
+    expires.setFullYear(expires.getFullYear() + 10);
+
+    if (account && !account.ignored) {
+      // Set token cookie
+      chrome.cookies.set({
+        url: 'https://twitter.com',
+        name: COOKIE_TOKEN,
+        value: account.token,
+        domain: '.twitter.com',
+        path: '/',
+        secure: true,
+        httpOnly: true,
+        expirationDate: expires / 1000
+      });
+
+      // Remove user id cookie
+      chrome.cookies.remove({
+        url: 'https://twitter.com',
+        name: COOKIE_ID
+      });
+    }
+
+    // Reload
+    chrome.tabs.getSelected(null, function (tab) {
+      chrome.tabs.reload(tab.id);
+    });
+  },
+
+  // Get current account
+  currentAccount: function (request, sendResponse) {
+
+    var getToken = function (next) {
+      chrome.cookies.get({
+        url: 'https://twitter.com',
+        name: COOKIE_TOKEN
+      }, setCookie);
+    };
+
+    var setCookie = function (cookie) {
+      if (!cookie) return sendResponse();
+
+      // Save cookie
+      var account = request.currentAccount;
+      accounts.set(account.uid, {
+        name: account.name,
+        img: account.img,
+        token: cookie.value
+      }, sendResponse);
+    };
+
+    // Make sure we have go all accounts before saving
+    accounts.getAll(getToken);
+
+    return true;
+  },
+
+  // Update ignored accounts
+  ignore: function (request, sendResponse) {
+    accounts.getAll(function (all) {
+      // Reset
+      for (var uid in all) {
+        all[uid].ignored = false;
+      }
+
+      // Update
+      request.ignore.forEach(function (uid) {
+        all[uid].ignored = true;
+      });
+
+      // Save
+      accounts.setAll(all, sendResponse);
+    });
+
+    return true;
+  }
+};
+
+/**
  * Listen for messages
  */
 
@@ -72,87 +170,10 @@ chrome.extension.onMessage.addListener(function (request, sender, sendResponse) 
     // Not from us
     return;
 
-  switch (request.type) {
-    case 'getAccounts':
-      accounts.getAll(sendResponse);
-      break;
-    case 'removeAccount':
-      accounts.remove(request.uid, function (accounts) {
-        sendResponse(accounts);
-      });
-      break;
-    case 'switchAccount':
-      var account = accounts.get(request.uid);
-      if (account && !account.ignored) {
-        var expires = new Date;
-        expires.setFullYear(expires.getFullYear() + 10);
+  if (request.type in handlers)
+    return handlers[request.type](request, sendResponse);
 
-        // Set token cookie
-        chrome.cookies.set({
-          url: 'https://twitter.com',
-          name: COOKIE_TOKEN,
-          value: account.token,
-          domain: '.twitter.com',
-          path: '/',
-          secure: true,
-          httpOnly: true,
-          expirationDate: expires / 1000
-        });
-
-        // Remove user id cookie
-        chrome.cookies.remove({
-          url: 'https://twitter.com',
-          name: COOKIE_ID
-        });
-      }
-
-      // Reload
-      chrome.tabs.getSelected(null, function (tab) {
-        chrome.tabs.reload(tab.id);
-      });
-      break;
-    case 'currentAccount':
-      // Make sure we have go all accounts before saving
-      accounts.getAll(function () {
-        // Get the token
-        chrome.cookies.get({
-          url: 'https://twitter.com',
-          name: COOKIE_TOKEN
-        }, function (cookie) {
-          if (!cookie) return callback();
-
-          // Save cookie
-          var account = request.currentAccount;
-          accounts.set(account.uid, {
-            name: account.name,
-            img: account.img,
-            token: cookie.value
-          }, sendResponse);
-        });
-      });
-      break;
-    case 'ignore':
-      accounts.getAll(function (all) {
-        // Reset
-        for (var uid in all) {
-          all[uid].ignored = false;
-        }
-
-        // Update
-        request.ignore.forEach(function (uid) {
-          all[uid].ignored = true;
-        });
-
-        // Save
-        accounts.setAll(all, sendResponse);
-      });
-      break;
-    default:
-      return false;
-  }
-
-  // Indicate response via callback
-  return true;
+  return false;
 });
 
 /**
