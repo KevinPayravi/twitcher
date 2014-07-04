@@ -69,13 +69,21 @@ var accounts = {
 var handlers = {
 
   getAccounts: function (request, sendResponse) {
-    accounts.getAll(sendResponse);
+    accounts.getAll(function (accounts) {
+      // Track
+      ga('set', 'dimension1', Object.keys(accounts).length || 0);
+
+      sendResponse(accounts);
+    });
 
     return true;
   },
 
   removeAccount: function (request, sendResponse) {
     accounts.remove(request.uid, sendResponse);
+
+    // Track
+    ga('send', 'event', 'twitcher', 'remove');
 
     return true;
   },
@@ -109,6 +117,9 @@ var handlers = {
     chrome.tabs.getSelected(null, function (tab) {
       chrome.tabs.reload(tab.id);
     });
+
+    // Track
+    ga('send', 'event', 'twitcher', 'switch');
   },
 
   // Get current account
@@ -154,7 +165,13 @@ var handlers = {
 
       // Save
       accounts.setAll(all, sendResponse);
+
+      // Track
+      ga('set', 'dimension2', request.ignore.length || 0);
     });
+
+    // Track
+    ga('send', 'event', 'twitcher', 'ignore');
 
     return true;
   }
@@ -180,11 +197,10 @@ chrome.extension.onMessage.addListener(function (request, sender, sendResponse) 
  * Google analytics
  */
 
-var _gaq = _gaq || [];
-_gaq.push(['_setAccount', 'UA-17516578-20']);
-_gaq.push(['_trackPageview']);
-(function() {
-  var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
-  ga.src = 'https://ssl.google-analytics.com/ga.js';
-  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
-})();
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'UA-17516578-20', 'auto');
+ga('send', 'pageview');
