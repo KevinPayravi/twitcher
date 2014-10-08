@@ -15,7 +15,7 @@
  */
 
 //Globals
-var dropdown = document.querySelector('.global-nav .pull-right .nav .dropdown-menu');
+var dropdown = document.querySelector('.global-nav .pull-right .nav .dropdown');
 var currentAccount;
 
 /**
