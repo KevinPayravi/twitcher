@@ -25,7 +25,7 @@ var currentAccount;
 var getCurrentAccount = function () {
   // Get current uid and image from DOM
   var account = dropdown.querySelector('.account-group');
-  var img = dropdown.querySelector('.account-group img');
+  var img = dropdown.querySelector('.dropdown-toggle img');
 
   if (!account) return false;
 
